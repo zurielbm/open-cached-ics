@@ -39,6 +39,26 @@ async function main() {
     const startedAt = Date.now();
     console.log(`Refreshing calendar: ${calendarId}`);
     const refreshed = await calendarService.refreshCalendar(calendarId);
+    const eventsWithImages = (refreshed.normalized?.events || []).filter((event) => event.imageSourceUrl);
+    let refreshedImages = 0;
+
+    for (const event of eventsWithImages) {
+      try {
+        await calendarService.refreshEventImage(calendarId, event.eventId, event.imageSourceUrl);
+        refreshedImages += 1;
+      } catch (error) {
+        logger.warn(
+          {
+            calendarId,
+            eventId: event.eventId,
+            sourceUrl: event.imageSourceUrl,
+            err: error.message,
+          },
+          'image refresh failed',
+        );
+      }
+    }
+
     const durationMs = Date.now() - startedAt;
     console.log(
       JSON.stringify(
@@ -47,6 +67,8 @@ async function main() {
           durationMs,
           fetchedAt: refreshed.normalized?.fetchedAt || refreshed.raw?.fetchedAt || null,
           eventCount: refreshed.normalized?.events?.length || 0,
+          imageCount: eventsWithImages.length,
+          refreshedImages,
         },
         null,
         2,

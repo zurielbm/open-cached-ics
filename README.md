@@ -59,6 +59,12 @@ Force a manual data refresh from the terminal:
 pnpm refresh
 ```
 
+This refreshes:
+
+- raw ICS cache
+- normalized JSON cache
+- cached images for current upcoming events that have an image
+
 Refresh one specific calendar:
 
 ```bash
@@ -504,7 +510,7 @@ From a Dockploy terminal inside the container, run:
 
 ```bash
 cd /app
-pnpm refresh
+node src/refresh.js
 ```
 
 ## Useful Test Commands
