@@ -119,7 +119,7 @@ async function calendarHandler(request, reply, app, type) {
 
   const auth = authorizeCalendarRequest(request, calendar, app.config);
   if (!auth.ok) {
-    app.log.warn({calendarId, reason: auth.code}, 'calendar auth failed');
+    app.logger.warn({calendarId, reason: auth.code}, 'calendar auth failed');
     reply.code(401).send({error: auth.code, message: 'Unauthorized'});
     return;
   }
@@ -170,16 +170,24 @@ async function calendarHandler(request, reply, app, type) {
     const result = await app.calendarService.getEvents(calendarId, limit);
     setCacheHeaders(reply, result);
     reply.header('Cache-Control', 'public, max-age=60');
-    reply.send(enrichEventsPayload(result.payload, calendarId, request));
+      reply.send(enrichEventsPayload(result.payload, calendarId, request));
   } catch (error) {
-    app.log.error({calendarId, err: error}, 'calendar request failed');
+    app.logger.error({calendarId, err: error}, 'calendar request failed');
     reply.code(502).send(app.calendarService.buildErrorPayload(error));
   }
 }
 
 async function registerRoutes(app) {
   app.addHook('onRequest', async (request, reply) => {
-    app.log.info({method: request.method, url: request.url}, 'request started');
+    request.requestStartedAt = Date.now();
+    app.logger.info(
+      {
+        method: request.method,
+        url: request.url,
+        ip: request.ip,
+      },
+      'request started',
+    );
     setCorsHeaders(reply, request, app.config);
     if (request.method === 'OPTIONS') {
       reply.code(204).send();
@@ -187,11 +195,12 @@ async function registerRoutes(app) {
   });
 
   app.addHook('onResponse', async (request, reply) => {
-    app.log.info(
+    app.logger.info(
       {
         method: request.method,
         url: request.url,
         statusCode: reply.statusCode,
+        durationMs: request.requestStartedAt ? Date.now() - request.requestStartedAt : null,
       },
       'request completed',
     );

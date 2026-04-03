@@ -2,24 +2,17 @@ const {loadConfig} = require('./config');
 const {CalendarRegistry} = require('./calendarRegistry');
 const {FileCache} = require('./cache/fileCache');
 const {CalendarService} = require('./calendarService');
+const {createLogger} = require('./logger');
 
 async function main() {
   const config = loadConfig();
   const registry = new CalendarRegistry(config);
   const cache = new FileCache({cacheDir: config.cacheDir});
   await cache.init();
-
-  const logger = {
-    info(payload, message) {
-      console.log(message, payload ? JSON.stringify(payload) : '');
-    },
-    warn(payload, message) {
-      console.warn(message, payload ? JSON.stringify(payload) : '');
-    },
-    error(payload, message) {
-      console.error(message, payload ? JSON.stringify(payload) : '');
-    },
-  };
+  const logger = createLogger({
+    level: config.logLevel,
+    logDir: config.logDir,
+  });
 
   const calendarService = new CalendarService({
     cache,
@@ -37,7 +30,13 @@ async function main() {
 
   for (const calendarId of calendarIds) {
     const startedAt = Date.now();
-    console.log(`Refreshing calendar: ${calendarId}`);
+    console.log(
+      JSON.stringify({
+        calendarId,
+        timestamp: new Date(startedAt).toISOString(),
+        event: 'manual_refresh_started',
+      }),
+    );
     const refreshed = await calendarService.refreshCalendar(calendarId);
     const eventsWithImages = (refreshed.normalized?.events || []).filter((event) => event.imageSourceUrl);
     let refreshedImages = 0;
@@ -64,6 +63,8 @@ async function main() {
       JSON.stringify(
         {
           calendarId,
+          timestamp: new Date().toISOString(),
+          event: 'manual_refresh_completed',
           durationMs,
           fetchedAt: refreshed.normalized?.fetchedAt || refreshed.raw?.fetchedAt || null,
           eventCount: refreshed.normalized?.events?.length || 0,

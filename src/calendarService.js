@@ -57,6 +57,13 @@ class CalendarService {
   }
 
   refreshInBackground(calendarId) {
+    this.logger.info(
+      {
+        calendarId,
+        timestamp: new Date().toISOString(),
+      },
+      'background refresh queued',
+    );
     this.refreshCalendar(calendarId).catch((error) => {
       this.logger.warn({calendarId, err: error}, 'background refresh failed');
     });
@@ -64,8 +71,23 @@ class CalendarService {
 
   refreshCalendar(calendarId) {
     if (this.refreshPromises.has(calendarId)) {
+      this.logger.info(
+        {
+          calendarId,
+          timestamp: new Date().toISOString(),
+        },
+        'refresh already in progress',
+      );
       return this.refreshPromises.get(calendarId);
     }
+
+    this.logger.info(
+      {
+        calendarId,
+        timestamp: new Date().toISOString(),
+      },
+      'refresh started',
+    );
 
     const promise = this.performRefresh(calendarId).finally(() => {
       this.refreshPromises.delete(calendarId);
@@ -118,7 +140,15 @@ class CalendarService {
 
       await this.cache.setNormalized(calendarId, normalizedPayload);
 
-      this.logger.info({calendarId, durationMs: fetchResult.durationMs}, 'upstream not modified');
+      this.logger.info(
+        {
+          calendarId,
+          durationMs: fetchResult.durationMs,
+          timestamp: refreshedRaw.fetchedAt,
+          fetchedAt: refreshedRaw.fetchedAt,
+        },
+        'refresh completed (upstream not modified)',
+      );
       return {
         raw: refreshedRaw,
         normalized: normalizedPayload,
@@ -154,10 +184,12 @@ class CalendarService {
       {
         calendarId,
         durationMs: fetchResult.durationMs,
+        timestamp: fetchedAt,
+        fetchedAt,
         eventCount: parsed.eventCount,
         filteredCount: parsed.filteredCount,
       },
-      'calendar refreshed',
+      'refresh completed',
     );
 
     return {

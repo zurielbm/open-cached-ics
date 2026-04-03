@@ -401,12 +401,27 @@ CORS_ALLOW_ORIGIN=https://your-site.com,https://www.your-site.com
 
 ### `LOG_LEVEL`
 
-Fastify log level.
+Application log level.
 
 Example:
 
 ```env
 LOG_LEVEL=info
+```
+
+### `LOG_DIR`
+
+Directory where logs are written.
+
+The app writes:
+
+- `app.log`: human-readable log lines
+- `app.jsonl`: one JSON object per line for machines and log shipping
+
+Example:
+
+```env
+LOG_DIR=./data/logs
 ```
 
 ### `EVENT_LOOKAHEAD_DAYS`

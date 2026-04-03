@@ -88,6 +88,7 @@ function loadConfig() {
     corsAllowOrigin: process.env.CORS_ALLOW_ORIGIN || '*',
     requireToken: toBoolean(process.env.REQUIRE_TOKEN, false),
     eventLookaheadDays: toNumber(process.env.EVENT_LOOKAHEAD_DAYS, 365),
+    logDir: resolvePath(process.env.LOG_DIR || './data/logs'),
     calendarConfigPath: configPath,
     calendars,
   };
