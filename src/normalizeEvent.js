@@ -58,6 +58,62 @@ function normalizeDescription(value) {
     .trim() || null;
 }
 
+function splitDescriptionTranslations(value) {
+  const normalized = normalizeDescription(value);
+  if (!normalized) {
+    return {
+      description: null,
+      descriptionSpanish: null,
+    };
+  }
+
+  const markerRegex = /(EN|ES):/gi;
+  const matches = [...normalized.matchAll(markerRegex)];
+
+  if (matches.length === 0) {
+    return {
+      description: normalized,
+      descriptionSpanish: null,
+    };
+  }
+
+  const englishParts = [];
+  const spanishParts = [];
+  const firstLanguage = matches[0][1].toUpperCase() === 'ES' ? 'es' : 'en';
+  let currentLanguage = firstLanguage === 'en' ? 'es' : 'en';
+  let cursor = 0;
+
+  function pushPart(language, text) {
+    const cleaned = text.trim();
+    if (!cleaned) {
+      return;
+    }
+
+    if (language === 'es') {
+      spanishParts.push(cleaned);
+      return;
+    }
+
+    englishParts.push(cleaned);
+  }
+
+  for (const match of matches) {
+    pushPart(currentLanguage, normalized.slice(cursor, match.index));
+    currentLanguage = match[1].toUpperCase() === 'ES' ? 'es' : 'en';
+    cursor = match.index + match[0].length;
+  }
+
+  pushPart(currentLanguage, normalized.slice(cursor));
+
+  const descriptionEnglish = englishParts.join('\n').trim() || null;
+  const descriptionSpanish = spanishParts.join('\n').trim() || null;
+
+  return {
+    description: descriptionEnglish,
+    descriptionSpanish,
+  };
+}
+
 function deriveCalendarUrl(calendar) {
   if (calendar.calendarUrl) {
     return calendar.calendarUrl;
@@ -112,17 +168,18 @@ function normalizeEvent(event, calendar) {
   }
 
   const status = normalizeStatus(event.status);
-  const description = normalizeDescription(event.description);
+  const descriptionParts = splitDescriptionTranslations(event.description);
   const eventUrl = pickEventUrl(event);
   const descriptionUrl = findDescriptionHref(event.description);
-  const addEventUrl = buildGoogleCalendarAddUrl(event, description);
+  const addEventUrl = buildGoogleCalendarAddUrl(event, descriptionParts.description);
   const sourceUrl = eventUrl || addEventUrl || deriveCalendarUrl(calendar);
   const imageSourceUrl = extractImageUrl(event) || null;
 
   return {
     eventId: createEventId(event),
     title: event.summary || null,
-    description,
+    description: descriptionParts.description,
+    descriptionSpanish: descriptionParts.descriptionSpanish,
     location: event.location || null,
     start,
     end,

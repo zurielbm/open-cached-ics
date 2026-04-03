@@ -3,6 +3,24 @@ const {fetchAsset} = require('./fetchAsset');
 const {parseCalendar} = require('./parseCalendar');
 const {buildEventsEnvelope, buildErrorResponse} = require('./responseBuilder');
 
+function normalizedCacheNeedsUpgrade(payload) {
+  if (!payload || !Array.isArray(payload.events)) {
+    return true;
+  }
+
+  return payload.events.some((event) => {
+    if (!Object.prototype.hasOwnProperty.call(event, 'descriptionSpanish')) {
+      return true;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(event, 'descriptionEnglish')) {
+      return true;
+    }
+
+    return false;
+  });
+}
+
 class UpstreamUnavailableError extends Error {
   constructor(message, fetchedAt = null) {
     super(message);
@@ -83,7 +101,8 @@ class CalendarService {
       await this.cache.setRaw(calendarId, refreshedRaw);
 
       const existingNormalized = await this.cache.getNormalized(calendarId);
-      const normalizedPayload = existingNormalized
+      const shouldRebuildNormalized = normalizedCacheNeedsUpgrade(existingNormalized);
+      const normalizedPayload = existingNormalized && !shouldRebuildNormalized
         ? {
             ...existingNormalized,
             fetchedAt: refreshedRaw.fetchedAt,

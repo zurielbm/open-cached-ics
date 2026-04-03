@@ -149,6 +149,7 @@ The `/api/calendar/default/events` response looks like:
       "eventId": "YWJjfDIwMjYtMDQtMDVUMTQ6MDA6MDAuMDAwWg",
       "title": "Sunday Event",
       "description": "Sunday Event Description",
+      "descriptionSpanish": "Descripcion del evento del domingo",
       "location": "123 Main St, Anytown, USA",
       "start": "2026-04-05T14:00:00.000Z",
       "end": "2026-04-05T16:30:00.000Z",
@@ -169,6 +170,8 @@ The `/api/calendar/default/events` response looks like:
 
 Field behavior:
 
+- `description`: full normalized description when no `EN:` or `ES:` marker exists; if a marker exists, this becomes the English-only block
+- `descriptionSpanish`: `null` when no marker exists; otherwise the Spanish description block taken from the `ES:` section
 - `ctaUrl`: explicit event URL from the ICS, or first link from the description, otherwise `null`
 - `subscribeUrl` on each event: Google Calendar "add event" link
 - `imageUrl`: locally proxied and cached image URL when the event has an image; the URL includes a version query so browsers fetch a fresh image after a data refresh
