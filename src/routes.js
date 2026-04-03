@@ -41,6 +41,66 @@ function setCacheHeaders(reply, result) {
   }
 }
 
+function getBaseUrl(request) {
+  const protocol = request.headers['x-forwarded-proto'] || 'http';
+  const host = request.headers['x-forwarded-host'] || request.headers.host;
+  return host ? `${protocol}://${host}` : '';
+}
+
+function enrichEventsPayload(payload, calendarId, request) {
+  const baseUrl = getBaseUrl(request);
+  return {
+    ...payload,
+    events: payload.events.map((event) => ({
+      ...event,
+      icsUrl: `${baseUrl}/api/calendar/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(event.eventId)}/ics`,
+    })),
+    subscribeUrl: `${baseUrl}/api/calendar/${encodeURIComponent(calendarId)}/raw`,
+  };
+}
+
+function escapeIcsText(value) {
+  return String(value || '')
+    .replace(/\\/g, '\\\\')
+    .replace(/\n/g, '\\n')
+    .replace(/,/g, '\\,')
+    .replace(/;/g, '\\;');
+}
+
+function toIcsDate(value) {
+  return new Date(value).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+}
+
+function buildEventIcs(event) {
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//open-cached-ics//EN',
+    'CALSCALE:GREGORIAN',
+    'BEGIN:VEVENT',
+    `UID:${escapeIcsText(event.eventId)}`,
+    `DTSTAMP:${toIcsDate(new Date().toISOString())}`,
+    `DTSTART:${toIcsDate(event.start)}`,
+    `DTEND:${toIcsDate(event.end)}`,
+    `SUMMARY:${escapeIcsText(event.title || 'Event')}`,
+  ];
+
+  if (event.description) {
+    lines.push(`DESCRIPTION:${escapeIcsText(event.description)}`);
+  }
+
+  if (event.location) {
+    lines.push(`LOCATION:${escapeIcsText(event.location)}`);
+  }
+
+  if (event.sourceUrl) {
+    lines.push(`URL:${escapeIcsText(event.sourceUrl)}`);
+  }
+
+  lines.push('END:VEVENT', 'END:VCALENDAR');
+  return `${lines.join('\r\n')}\r\n`;
+}
+
 async function calendarHandler(request, reply, app, type) {
   const calendarId = request.params.calendarId || app.config.defaultCalendarId;
   const calendar = app.registry.getCalendar(calendarId);
@@ -67,11 +127,29 @@ async function calendarHandler(request, reply, app, type) {
       return;
     }
 
+    if (type === 'event-ics') {
+      const result = await app.calendarService.getEvent(calendarId, request.params.eventId);
+      if (!result.payload) {
+        reply.code(404).send({error: 'EVENT_NOT_FOUND', message: 'Event not found'});
+        return;
+      }
+
+      setCacheHeaders(reply, result);
+      reply.header('Cache-Control', 'public, max-age=60');
+      reply.header(
+        'Content-Disposition',
+        `attachment; filename="${(result.payload.title || 'event').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.ics"`,
+      );
+      reply.type('text/calendar; charset=utf-8');
+      reply.send(buildEventIcs(result.payload));
+      return;
+    }
+
     const limit = parseLimit(request.query.limit);
     const result = await app.calendarService.getEvents(calendarId, limit);
     setCacheHeaders(reply, result);
     reply.header('Cache-Control', 'public, max-age=60');
-    reply.send(result.payload);
+    reply.send(enrichEventsPayload(result.payload, calendarId, request));
   } catch (error) {
     app.log.error({calendarId, err: error}, 'calendar request failed');
     reply.code(502).send(app.calendarService.buildErrorPayload(error));
@@ -115,12 +193,20 @@ async function registerRoutes(app) {
     reply.code(204).send();
   });
 
+  app.options('/api/calendar/:calendarId/events/:eventId/ics', async (request, reply) => {
+    reply.code(204).send();
+  });
+
   app.get('/api/calendar/:calendarId/raw', async (request, reply) => {
     await calendarHandler(request, reply, app, 'raw');
   });
 
   app.get('/api/calendar/:calendarId/events', async (request, reply) => {
     await calendarHandler(request, reply, app, 'events');
+  });
+
+  app.get('/api/calendar/:calendarId/events/:eventId/ics', async (request, reply) => {
+    await calendarHandler(request, reply, app, 'event-ics');
   });
 }
 

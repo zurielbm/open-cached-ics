@@ -30,6 +30,17 @@ function toIsoString(value) {
   return value instanceof Date && !Number.isNaN(value.valueOf()) ? value.toISOString() : null;
 }
 
+function toGoogleDate(value) {
+  return value instanceof Date && !Number.isNaN(value.valueOf())
+    ? value.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')
+    : null;
+}
+
+function createEventId(event) {
+  const seed = `${event.uid || event.summary || 'event'}|${toIsoString(event.start) || 'unknown'}`;
+  return Buffer.from(seed).toString('base64url');
+}
+
 function normalizeDescription(value) {
   if (!value) {
     return null;
@@ -65,6 +76,34 @@ function deriveCalendarUrl(calendar) {
   }
 }
 
+function buildGoogleCalendarAddUrl(event, description) {
+  const start = toGoogleDate(event.start);
+  const end = toGoogleDate(event.end);
+
+  if (!start || !end) {
+    return null;
+  }
+
+  const url = new URL('https://calendar.google.com/calendar/render');
+  url.searchParams.set('action', 'TEMPLATE');
+
+  if (event.summary) {
+    url.searchParams.set('text', event.summary);
+  }
+
+  url.searchParams.set('dates', `${start}/${end}`);
+
+  if (description) {
+    url.searchParams.set('details', description);
+  }
+
+  if (event.location) {
+    url.searchParams.set('location', event.location);
+  }
+
+  return url.toString();
+}
+
 function normalizeEvent(event, calendar) {
   const start = toIsoString(event.start);
   const end = toIsoString(event.end);
@@ -73,21 +112,25 @@ function normalizeEvent(event, calendar) {
   }
 
   const status = normalizeStatus(event.status);
+  const description = normalizeDescription(event.description);
   const eventUrl = pickEventUrl(event);
   const descriptionUrl = findDescriptionHref(event.description);
-  const fallbackUrl = deriveCalendarUrl(calendar);
-  const sourceUrl = eventUrl || fallbackUrl;
+  const addEventUrl = buildGoogleCalendarAddUrl(event, description);
+  const sourceUrl = eventUrl || addEventUrl || deriveCalendarUrl(calendar);
 
   return {
+    eventId: createEventId(event),
     title: event.summary || null,
-    description: normalizeDescription(event.description),
+    description,
     location: event.location || null,
     start,
     end,
     allDay: isAllDayEvent(event),
     status,
     imageUrl: extractImageUrl(event) || null,
-    ctaUrl: eventUrl || descriptionUrl || fallbackUrl,
+    ctaUrl: eventUrl || descriptionUrl || null,
+    subscribeUrl: addEventUrl,
+    icsUrl: null,
     sourceUrl,
   };
 }

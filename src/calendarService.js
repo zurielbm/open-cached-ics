@@ -178,7 +178,7 @@ class CalendarService {
     }
   }
 
-  async getEvents(calendarId, limit) {
+  async getNormalizedPayload(calendarId) {
     const now = new Date();
     const ttlMs = this.config.cacheTtlSeconds * 1000;
     const staleMs = this.config.cacheStaleSeconds * 1000;
@@ -187,7 +187,7 @@ class CalendarService {
 
     if (classification.state === 'fresh') {
       return {
-        payload: buildEventsEnvelope(cached, limit),
+        payload: cached,
         cacheStatus: 'HIT',
         cacheAge: classification.ageSeconds,
       };
@@ -196,7 +196,7 @@ class CalendarService {
     if (classification.state === 'stale') {
       this.refreshInBackground(calendarId);
       return {
-        payload: buildEventsEnvelope(cached, limit),
+        payload: cached,
         cacheStatus: 'STALE',
         cacheAge: classification.ageSeconds,
       };
@@ -205,7 +205,7 @@ class CalendarService {
     try {
       const refreshed = await this.refreshCalendar(calendarId);
       return {
-        payload: buildEventsEnvelope(refreshed.normalized, limit),
+        payload: refreshed.normalized,
         cacheStatus: classification.state === 'miss' ? 'MISS' : 'REFRESH',
         cacheAge: 0,
       };
@@ -213,7 +213,7 @@ class CalendarService {
       if (cached) {
         this.logger.warn({calendarId, err: error}, 'serving stale normalized cache after refresh failure');
         return {
-          payload: buildEventsEnvelope(cached, limit),
+          payload: cached,
           cacheStatus: 'STALE',
           cacheAge: classification.ageSeconds,
           warning: true,
@@ -222,6 +222,24 @@ class CalendarService {
 
       throw new UpstreamUnavailableError('Failed to refresh calendar feed');
     }
+  }
+
+  async getEvents(calendarId, limit) {
+    const result = await this.getNormalizedPayload(calendarId);
+    return {
+      ...result,
+      payload: buildEventsEnvelope(result.payload, limit),
+    };
+  }
+
+  async getEvent(calendarId, eventId) {
+    const result = await this.getNormalizedPayload(calendarId);
+    const event = result.payload.events.find((item) => item.eventId === eventId) || null;
+
+    return {
+      ...result,
+      payload: event,
+    };
   }
 
   buildErrorPayload(error) {

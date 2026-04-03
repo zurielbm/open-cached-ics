@@ -22,17 +22,17 @@ The default port is `3030`.
 
 See `.env.example` for the full set. The main ones are:
 
-- `PORT`
-- `CALENDAR_ICS_URL`
-- `CALENDAR_TIMEZONE`
-- `CALENDAR_URL`
-- `CALENDAR_TOKEN`
-- `CALENDAR_CONFIG_PATH`
-- `CACHE_DIR`
-- `CACHE_TTL_SECONDS`
-- `CACHE_STALE_SECONDS`
-- `UPSTREAM_TIMEOUT_MS`
-- `CORS_ALLOW_ORIGIN`
+- `PORT` - The port to run the server on
+- `CALENDAR_ICS_URL` - The ICS URL of the calendar
+- `CALENDAR_TIMEZONE` - The timezone of the calendar
+- `CALENDAR_URL` - The URL of the calendar embed
+- `CALENDAR_TOKEN` - The token of the calendar
+- `CALENDAR_CONFIG_PATH` - The path to the calendar config file
+- `CACHE_DIR` - The directory to store the cache
+- `CACHE_TTL_SECONDS` - The time to live in seconds
+- `CACHE_STALE_SECONDS` - The time to stale in seconds
+- `UPSTREAM_TIMEOUT_MS` - The timeout in milliseconds
+- `CORS_ALLOW_ORIGIN` - The CORS allow origin
 
 ## Calendar config
 
