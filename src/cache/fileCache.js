@@ -10,6 +10,11 @@ class FileCache {
       normalized: new Map(),
       image: new Map(),
     };
+    this.memoryMeta = {
+      raw: new Map(),
+      normalized: new Map(),
+      image: new Map(),
+    };
   }
 
   async init() {
@@ -21,18 +26,9 @@ class FileCache {
     return path.join(this.cacheDir, `${calendarId}.${kind}.json`);
   }
 
-  async read(kind, calendarId) {
-    const map = this.memory[kind];
-    if (map.has(calendarId)) {
-      return map.get(calendarId);
-    }
-
+  async readFileStat(filePath) {
     try {
-      const filePath = this.buildPath(kind, calendarId);
-      const raw = await fs.readFile(filePath, 'utf8');
-      const parsed = JSON.parse(raw);
-      map.set(calendarId, parsed);
-      return parsed;
+      return await fs.stat(filePath);
     } catch (error) {
       if (error.code === 'ENOENT') {
         return null;
@@ -42,11 +38,51 @@ class FileCache {
     }
   }
 
+  async read(kind, calendarId) {
+    const map = this.memory[kind];
+    const metaMap = this.memoryMeta[kind];
+    const filePath = this.buildPath(kind, calendarId);
+
+    if (map.has(calendarId)) {
+      const stat = await this.readFileStat(filePath);
+      if (!stat) {
+        map.delete(calendarId);
+        metaMap.delete(calendarId);
+        return null;
+      }
+
+      const cachedMtimeMs = metaMap.get(calendarId);
+      if (cachedMtimeMs === stat.mtimeMs) {
+        return map.get(calendarId);
+      }
+    }
+
+    try {
+      const raw = await fs.readFile(filePath, 'utf8');
+      const parsed = JSON.parse(raw);
+      const stat = await this.readFileStat(filePath);
+      map.set(calendarId, parsed);
+      metaMap.set(calendarId, stat?.mtimeMs || null);
+      return parsed;
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        map.delete(calendarId);
+        metaMap.delete(calendarId);
+        return null;
+      }
+
+      throw error;
+    }
+  }
+
   async write(kind, calendarId, data) {
     const map = this.memory[kind];
-    map.set(calendarId, data);
+    const metaMap = this.memoryMeta[kind];
     const filePath = this.buildPath(kind, calendarId);
     await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf8');
+    const stat = await this.readFileStat(filePath);
+    map.set(calendarId, data);
+    metaMap.set(calendarId, stat?.mtimeMs || null);
     return data;
   }
 
@@ -76,23 +112,40 @@ class FileCache {
 
   async getImage(cacheKey) {
     const map = this.memory.image;
+    const metaMap = this.memoryMeta.image;
+    const metaPath = this.buildImageMetaPath(cacheKey);
+
     if (map.has(cacheKey)) {
-      return map.get(cacheKey);
+      const stat = await this.readFileStat(metaPath);
+      if (!stat) {
+        map.delete(cacheKey);
+        metaMap.delete(cacheKey);
+        return null;
+      }
+
+      const cachedMtimeMs = metaMap.get(cacheKey);
+      if (cachedMtimeMs === stat.mtimeMs) {
+        return map.get(cacheKey);
+      }
     }
 
     try {
       const [metaRaw, body] = await Promise.all([
-        fs.readFile(this.buildImageMetaPath(cacheKey), 'utf8'),
+        fs.readFile(metaPath, 'utf8'),
         fs.readFile(this.buildImageBodyPath(cacheKey)),
       ]);
       const payload = {
         ...JSON.parse(metaRaw),
         body,
       };
+      const stat = await this.readFileStat(metaPath);
       map.set(cacheKey, payload);
+      metaMap.set(cacheKey, stat?.mtimeMs || null);
       return payload;
     } catch (error) {
       if (error.code === 'ENOENT') {
+        map.delete(cacheKey);
+        metaMap.delete(cacheKey);
         return null;
       }
 
@@ -107,8 +160,6 @@ class FileCache {
       sourceUrl: data.sourceUrl,
       body: Buffer.isBuffer(data.body) ? data.body : Buffer.from(data.body),
     };
-
-    this.memory.image.set(cacheKey, payload);
 
     await Promise.all([
       fs.writeFile(
@@ -126,6 +177,10 @@ class FileCache {
       ),
       fs.writeFile(this.buildImageBodyPath(cacheKey), payload.body),
     ]);
+
+    const stat = await this.readFileStat(this.buildImageMetaPath(cacheKey));
+    this.memory.image.set(cacheKey, payload);
+    this.memoryMeta.image.set(cacheKey, stat?.mtimeMs || null);
 
     return payload;
   }
