@@ -1,0 +1,7 @@
+{
+  "default": {
+    "icsUrl": "https://calendar.google.com/calendar/ical/replace-me/basic.ics",
+    "timezone": "America/New_York",
+    "calendarUrl": "https://calendar.google.com/calendar/embed?src=replace-me"
+  }
+}
