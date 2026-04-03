@@ -11,15 +11,22 @@ Small self-hosted calendar proxy for Google Calendar ICS feeds. It exposes:
 ```bash
 npm install
 cp .env.example .env
-cp config/calendars.example.json config/calendars.json
 npm start
 ```
+
+For Dockploy, the easiest setup is to define your calendar directly in env and avoid editing JSON on the server.
+
+The default port is `3030`.
 
 ## Environment
 
 See `.env.example` for the full set. The main ones are:
 
 - `PORT`
+- `CALENDAR_ICS_URL`
+- `CALENDAR_TIMEZONE`
+- `CALENDAR_URL`
+- `CALENDAR_TOKEN`
 - `CALENDAR_CONFIG_PATH`
 - `CACHE_DIR`
 - `CACHE_TTL_SECONDS`
@@ -29,7 +36,18 @@ See `.env.example` for the full set. The main ones are:
 
 ## Calendar config
 
-Create `config/calendars.json` from the example file and provide at least one calendar:
+For a single production calendar, configure it directly in `.env` or Dockploy:
+
+```env
+CALENDAR_ICS_URL=https://calendar.google.com/calendar/ical/xxx/basic.ics
+CALENDAR_TIMEZONE=America/New_York
+CALENDAR_URL=https://calendar.google.com/calendar/embed?src=xxx
+CALENDAR_TOKEN=
+```
+
+If `CALENDAR_ICS_URL` is set, it populates the `default` calendar automatically.
+
+For multiple calendars later, create `config/calendars.json` from the example file and provide at least one calendar:
 
 ```json
 {
@@ -50,4 +68,3 @@ Create `config/calendars.json` from the example file and provide at least one ca
 - Falls back to stale cache when upstream refresh fails
 
 Persist `CACHE_DIR` as a Dockploy volume, for example `/app/data/cache`.
-

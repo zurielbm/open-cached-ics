@@ -21,11 +21,11 @@ function resolvePath(filePath) {
   return path.isAbsolute(filePath) ? filePath : path.resolve(process.cwd(), filePath);
 }
 
-function loadCalendars(configPath) {
+function loadCalendarsFromFile(configPath) {
   const resolvedPath = resolvePath(configPath);
 
   if (!fs.existsSync(resolvedPath)) {
-    throw new Error(`Calendar config not found at ${resolvedPath}`);
+    return {calendars: {}, configPath: resolvedPath};
   }
 
   const raw = fs.readFileSync(resolvedPath, 'utf8');
@@ -38,12 +38,38 @@ function loadCalendars(configPath) {
   return {calendars: parsed, configPath: resolvedPath};
 }
 
+function loadCalendars(configPath) {
+  const fromFile = loadCalendarsFromFile(configPath);
+  const defaultCalendarId = process.env.DEFAULT_CALENDAR_ID || 'default';
+  const envIcsUrl = process.env.CALENDAR_ICS_URL;
+
+  const calendars = {...fromFile.calendars};
+
+  if (envIcsUrl) {
+    calendars[defaultCalendarId] = {
+      ...(calendars[defaultCalendarId] || {}),
+      icsUrl: envIcsUrl,
+      timezone: process.env.CALENDAR_TIMEZONE || calendars[defaultCalendarId]?.timezone || 'UTC',
+      token: process.env.CALENDAR_TOKEN || calendars[defaultCalendarId]?.token || undefined,
+      calendarUrl: process.env.CALENDAR_URL || calendars[defaultCalendarId]?.calendarUrl || undefined,
+    };
+  }
+
+  if (!Object.keys(calendars).length) {
+    throw new Error(
+      `No calendars configured. Set CALENDAR_ICS_URL or provide a config file at ${fromFile.configPath}`,
+    );
+  }
+
+  return {calendars, configPath: fromFile.configPath};
+}
+
 function loadConfig() {
   const calendarConfigPath = process.env.CALENDAR_CONFIG_PATH || './config/calendars.json';
   const {calendars, configPath} = loadCalendars(calendarConfigPath);
 
   return {
-    port: toNumber(process.env.PORT, 3000),
+    port: toNumber(process.env.PORT, 3030),
     host: process.env.HOST || '0.0.0.0',
     logLevel: process.env.LOG_LEVEL || 'info',
     defaultCalendarId: process.env.DEFAULT_CALENDAR_ID || 'default',
@@ -62,4 +88,3 @@ function loadConfig() {
 module.exports = {
   loadConfig,
 };
-
