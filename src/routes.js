@@ -51,10 +51,16 @@ function enrichEventsPayload(payload, calendarId, request) {
   const baseUrl = getBaseUrl(request);
   return {
     ...payload,
-    events: payload.events.map((event) => ({
-      ...event,
-      icsUrl: `${baseUrl}/api/calendar/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(event.eventId)}/ics`,
-    })),
+    events: payload.events.map((event) => {
+      const {imageSourceUrl, ...publicEvent} = event;
+      return {
+        ...publicEvent,
+        imageUrl: imageSourceUrl
+          ? `${baseUrl}/api/calendar/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(event.eventId)}/image`
+          : null,
+        icsUrl: `${baseUrl}/api/calendar/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(event.eventId)}/ics`,
+      };
+    }),
     subscribeUrl: `${baseUrl}/api/calendar/${encodeURIComponent(calendarId)}/raw`,
   };
 }
@@ -145,6 +151,20 @@ async function calendarHandler(request, reply, app, type) {
       return;
     }
 
+    if (type === 'event-image') {
+      const result = await app.calendarService.getEventImage(calendarId, request.params.eventId);
+      if (!result.payload) {
+        reply.code(404).send({error: 'IMAGE_NOT_FOUND', message: 'Event image not found'});
+        return;
+      }
+
+      setCacheHeaders(reply, result);
+      reply.header('Cache-Control', 'public, max-age=3600');
+      reply.type(result.payload.contentType || 'application/octet-stream');
+      reply.send(result.payload.body);
+      return;
+    }
+
     const limit = parseLimit(request.query.limit);
     const result = await app.calendarService.getEvents(calendarId, limit);
     setCacheHeaders(reply, result);
@@ -197,6 +217,10 @@ async function registerRoutes(app) {
     reply.code(204).send();
   });
 
+  app.options('/api/calendar/:calendarId/events/:eventId/image', async (request, reply) => {
+    reply.code(204).send();
+  });
+
   app.get('/api/calendar/:calendarId/raw', async (request, reply) => {
     await calendarHandler(request, reply, app, 'raw');
   });
@@ -207,6 +231,10 @@ async function registerRoutes(app) {
 
   app.get('/api/calendar/:calendarId/events/:eventId/ics', async (request, reply) => {
     await calendarHandler(request, reply, app, 'event-ics');
+  });
+
+  app.get('/api/calendar/:calendarId/events/:eventId/image', async (request, reply) => {
+    await calendarHandler(request, reply, app, 'event-image');
   });
 }
 

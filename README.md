@@ -15,6 +15,7 @@ It fetches a Google Calendar ICS URL, caches the upstream response, filters to f
 - `GET /api/calendar/:calendarId/events`
 - `GET /api/calendar/:calendarId/raw`
 - `GET /api/calendar/:calendarId/events/:eventId/ics`
+- `GET /api/calendar/:calendarId/events/:eventId/image`
 
 Default calendar id: `default`
 
@@ -95,6 +96,20 @@ http://localhost:3030/api/calendar/default/events
 http://localhost:3030/api/calendar/default/events/EVENT_ID/ics
 ```
 
+Per-event cached image:
+
+1. First fetch:
+
+```text
+http://localhost:3030/api/calendar/default/events
+```
+
+2. Copy an event's `imageUrl` field. It will look like:
+
+```text
+http://localhost:3030/api/calendar/default/events/EVENT_ID/image
+```
+
 Whole-calendar subscription URL:
 
 Use the raw endpoint:
@@ -121,7 +136,7 @@ The `/api/calendar/default/events` response looks like:
       "end": "2026-04-05T16:30:00.000Z",
       "allDay": false,
       "status": "CONFIRMED",
-      "imageUrl": "https://image.url",
+      "imageUrl": "http://localhost:3030/api/calendar/default/events/EVENT_ID/image",
       "ctaUrl": null,
       "subscribeUrl": "https://calendar.google.com/calendar/render?action=TEMPLATE...",
       "icsUrl": "http://localhost:3030/api/calendar/default/events/EVENT_ID/ics",
@@ -138,6 +153,7 @@ Field behavior:
 
 - `ctaUrl`: explicit event URL from the ICS, or first link from the description, otherwise `null`
 - `subscribeUrl` on each event: Google Calendar "add event" link
+- `imageUrl`: locally proxied and cached image URL when the event has an image
 - `icsUrl`: direct downloadable ICS file for that event
 - top-level `subscribeUrl`: whole-calendar raw ICS feed from this proxy
 
@@ -429,6 +445,7 @@ Two cache files are maintained per calendar:
 
 - raw upstream ICS cache
 - normalized JSON cache
+- image cache files for per-event image requests
 
 On refresh, the app does not delete the cache directory. It overwrites the calendar's cache files in place with the latest data.
 
@@ -437,6 +454,7 @@ When the cache is stale:
 - stale data can be returned immediately
 - refresh happens in the background
 - stale data is used as a fallback if upstream is slow or unavailable
+- repeated event image requests are served from local cache instead of refetching the upstream image every time
 
 To force a refresh during testing:
 

@@ -4,14 +4,17 @@ const path = require('node:path');
 class FileCache {
   constructor(options) {
     this.cacheDir = options.cacheDir;
+    this.imageDir = path.join(this.cacheDir, 'images');
     this.memory = {
       raw: new Map(),
       normalized: new Map(),
+      image: new Map(),
     };
   }
 
   async init() {
     await fs.mkdir(this.cacheDir, {recursive: true});
+    await fs.mkdir(this.imageDir, {recursive: true});
   }
 
   buildPath(kind, calendarId) {
@@ -62,9 +65,72 @@ class FileCache {
   setNormalized(calendarId, data) {
     return this.write('normalized', calendarId, data);
   }
+
+  buildImageMetaPath(cacheKey) {
+    return path.join(this.imageDir, `${cacheKey}.json`);
+  }
+
+  buildImageBodyPath(cacheKey) {
+    return path.join(this.imageDir, `${cacheKey}.body`);
+  }
+
+  async getImage(cacheKey) {
+    const map = this.memory.image;
+    if (map.has(cacheKey)) {
+      return map.get(cacheKey);
+    }
+
+    try {
+      const [metaRaw, body] = await Promise.all([
+        fs.readFile(this.buildImageMetaPath(cacheKey), 'utf8'),
+        fs.readFile(this.buildImageBodyPath(cacheKey)),
+      ]);
+      const payload = {
+        ...JSON.parse(metaRaw),
+        body,
+      };
+      map.set(cacheKey, payload);
+      return payload;
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        return null;
+      }
+
+      throw error;
+    }
+  }
+
+  async setImage(cacheKey, data) {
+    const payload = {
+      contentType: data.contentType,
+      fetchedAt: data.fetchedAt,
+      sourceUrl: data.sourceUrl,
+      body: Buffer.isBuffer(data.body) ? data.body : Buffer.from(data.body),
+    };
+
+    this.memory.image.set(cacheKey, payload);
+
+    await Promise.all([
+      fs.writeFile(
+        this.buildImageMetaPath(cacheKey),
+        JSON.stringify(
+          {
+            contentType: payload.contentType,
+            fetchedAt: payload.fetchedAt,
+            sourceUrl: payload.sourceUrl,
+          },
+          null,
+          2,
+        ),
+        'utf8',
+      ),
+      fs.writeFile(this.buildImageBodyPath(cacheKey), payload.body),
+    ]);
+
+    return payload;
+  }
 }
 
 module.exports = {
   FileCache,
 };
-

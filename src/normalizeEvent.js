@@ -117,6 +117,7 @@ function normalizeEvent(event, calendar) {
   const descriptionUrl = findDescriptionHref(event.description);
   const addEventUrl = buildGoogleCalendarAddUrl(event, description);
   const sourceUrl = eventUrl || addEventUrl || deriveCalendarUrl(calendar);
+  const imageSourceUrl = extractImageUrl(event) || null;
 
   return {
     eventId: createEventId(event),
@@ -127,7 +128,8 @@ function normalizeEvent(event, calendar) {
     end,
     allDay: isAllDayEvent(event),
     status,
-    imageUrl: extractImageUrl(event) || null,
+    imageUrl: imageSourceUrl,
+    imageSourceUrl,
     ctaUrl: eventUrl || descriptionUrl || null,
     subscribeUrl: addEventUrl,
     icsUrl: null,

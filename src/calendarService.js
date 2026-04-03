@@ -1,4 +1,5 @@
 const {fetchIcs} = require('./fetchIcs');
+const {fetchAsset} = require('./fetchAsset');
 const {parseCalendar} = require('./parseCalendar');
 const {buildEventsEnvelope, buildErrorResponse} = require('./responseBuilder');
 
@@ -34,6 +35,7 @@ class CalendarService {
     this.registry = options.registry;
     this.config = options.config;
     this.refreshPromises = new Map();
+    this.imageRefreshPromises = new Map();
   }
 
   refreshInBackground(calendarId) {
@@ -240,6 +242,105 @@ class CalendarService {
       ...result,
       payload: event,
     };
+  }
+
+  buildImageCacheKey(calendarId, eventId) {
+    return Buffer.from(`${calendarId}:${eventId}`).toString('base64url');
+  }
+
+  refreshImageInBackground(calendarId, eventId, sourceUrl) {
+    this.refreshEventImage(calendarId, eventId, sourceUrl).catch((error) => {
+      this.logger.warn({calendarId, eventId, err: error}, 'background image refresh failed');
+    });
+  }
+
+  refreshEventImage(calendarId, eventId, sourceUrl) {
+    const cacheKey = this.buildImageCacheKey(calendarId, eventId);
+    if (this.imageRefreshPromises.has(cacheKey)) {
+      return this.imageRefreshPromises.get(cacheKey);
+    }
+
+    const promise = this.performImageRefresh(calendarId, eventId, sourceUrl).finally(() => {
+      this.imageRefreshPromises.delete(cacheKey);
+    });
+
+    this.imageRefreshPromises.set(cacheKey, promise);
+    return promise;
+  }
+
+  async performImageRefresh(calendarId, eventId, sourceUrl) {
+    const cacheKey = this.buildImageCacheKey(calendarId, eventId);
+    const fetchResult = await fetchAsset(sourceUrl, {
+      timeoutMs: this.config.upstreamTimeoutMs,
+    });
+
+    const payload = {
+      body: fetchResult.body,
+      contentType: fetchResult.contentType,
+      fetchedAt: new Date().toISOString(),
+      sourceUrl,
+    };
+
+    await this.cache.setImage(cacheKey, payload);
+    this.logger.info({calendarId, eventId, durationMs: fetchResult.durationMs}, 'event image refreshed');
+    return payload;
+  }
+
+  async getEventImage(calendarId, eventId) {
+    const eventResult = await this.getEvent(calendarId, eventId);
+    const event = eventResult.payload;
+
+    if (!event || !event.imageSourceUrl) {
+      return {
+        ...eventResult,
+        payload: null,
+      };
+    }
+
+    const cacheKey = this.buildImageCacheKey(calendarId, eventId);
+    const now = new Date();
+    const ttlMs = this.config.cacheTtlSeconds * 1000;
+    const staleMs = this.config.cacheStaleSeconds * 1000;
+    const cached = await this.cache.getImage(cacheKey);
+    const classification = classifyCache(cached, now, ttlMs, staleMs);
+
+    if (classification.state === 'fresh') {
+      return {
+        payload: cached,
+        cacheStatus: 'HIT',
+        cacheAge: classification.ageSeconds,
+      };
+    }
+
+    if (classification.state === 'stale') {
+      this.refreshImageInBackground(calendarId, eventId, event.imageSourceUrl);
+      return {
+        payload: cached,
+        cacheStatus: 'STALE',
+        cacheAge: classification.ageSeconds,
+      };
+    }
+
+    try {
+      const refreshed = await this.refreshEventImage(calendarId, eventId, event.imageSourceUrl);
+      return {
+        payload: refreshed,
+        cacheStatus: classification.state === 'miss' ? 'MISS' : 'REFRESH',
+        cacheAge: 0,
+      };
+    } catch (error) {
+      if (cached) {
+        this.logger.warn({calendarId, eventId, err: error}, 'serving stale image cache after refresh failure');
+        return {
+          payload: cached,
+          cacheStatus: 'STALE',
+          cacheAge: classification.ageSeconds,
+          warning: true,
+        };
+      }
+
+      throw new UpstreamUnavailableError('Failed to refresh calendar image');
+    }
   }
 
   buildErrorPayload(error) {
