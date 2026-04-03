@@ -49,6 +49,7 @@ function getBaseUrl(request) {
 
 function enrichEventsPayload(payload, calendarId, request) {
   const baseUrl = getBaseUrl(request);
+  const version = encodeURIComponent(payload.fetchedAt || '');
   return {
     ...payload,
     events: payload.events.map((event) => {
@@ -56,7 +57,7 @@ function enrichEventsPayload(payload, calendarId, request) {
       return {
         ...publicEvent,
         imageUrl: imageSourceUrl
-          ? `${baseUrl}/api/calendar/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(event.eventId)}/image`
+          ? `${baseUrl}/api/calendar/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(event.eventId)}/image?v=${version}`
           : null,
         icsUrl: `${baseUrl}/api/calendar/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(event.eventId)}/ics`,
       };

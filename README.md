@@ -154,7 +154,7 @@ The `/api/calendar/default/events` response looks like:
       "end": "2026-04-05T16:30:00.000Z",
       "allDay": false,
       "status": "CONFIRMED",
-      "imageUrl": "http://localhost:3030/api/calendar/default/events/EVENT_ID/image",
+      "imageUrl": "http://localhost:3030/api/calendar/default/events/EVENT_ID/image?v=2026-04-03T01%3A00%3A00.000Z",
       "ctaUrl": null,
       "subscribeUrl": "https://calendar.google.com/calendar/render?action=TEMPLATE...",
       "icsUrl": "http://localhost:3030/api/calendar/default/events/EVENT_ID/ics",
@@ -171,7 +171,7 @@ Field behavior:
 
 - `ctaUrl`: explicit event URL from the ICS, or first link from the description, otherwise `null`
 - `subscribeUrl` on each event: Google Calendar "add event" link
-- `imageUrl`: locally proxied and cached image URL when the event has an image
+- `imageUrl`: locally proxied and cached image URL when the event has an image; the URL includes a version query so browsers fetch a fresh image after a data refresh
 - `icsUrl`: direct downloadable ICS file for that event
 - top-level `subscribeUrl`: whole-calendar raw ICS feed from this proxy
 
