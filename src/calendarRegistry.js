@@ -20,9 +20,15 @@ class CalendarRegistry {
       calendarUrl: calendar.calendarUrl || null,
     };
   }
+
+  listCalendarIds() {
+    return Object.keys(this.calendars).filter((calendarId) => {
+      const calendar = this.calendars[calendarId];
+      return calendar && calendar.icsUrl;
+    });
+  }
 }
 
 module.exports = {
   CalendarRegistry,
 };
-

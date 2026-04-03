@@ -53,6 +53,18 @@ CALENDAR_TOKEN=
 npm start
 ```
 
+Force a manual data refresh from the terminal:
+
+```bash
+pnpm refresh
+```
+
+Refresh one specific calendar:
+
+```bash
+pnpm refresh default
+```
+
 ## URLs To Use
 
 After startup, these are the main URLs to test in your browser or with `curl`.
@@ -328,6 +340,30 @@ CACHE_TTL_SECONDS=900
 CACHE_STALE_SECONDS=3600
 ```
 
+### `IMAGE_CACHE_TTL_SECONDS`
+
+How long cached images are considered fresh.
+
+If omitted, it falls back to `CACHE_TTL_SECONDS`.
+
+Example:
+
+```env
+IMAGE_CACHE_TTL_SECONDS=86400
+```
+
+### `IMAGE_CACHE_STALE_SECONDS`
+
+How long stale cached images may still be served while the image refresh happens in the background.
+
+If omitted, it falls back to `CACHE_STALE_SECONDS`.
+
+Example:
+
+```env
+IMAGE_CACHE_STALE_SECONDS=86400
+```
+
 ### `UPSTREAM_TIMEOUT_MS`
 
 Timeout for the upstream Google Calendar fetch.
@@ -399,6 +435,8 @@ CALENDAR_TOKEN=
 CACHE_DIR=/app/data/cache
 CACHE_TTL_SECONDS=900
 CACHE_STALE_SECONDS=3600
+IMAGE_CACHE_TTL_SECONDS=86400
+IMAGE_CACHE_STALE_SECONDS=604800
 UPSTREAM_TIMEOUT_MS=8000
 CORS_ALLOW_ORIGIN=*
 LOG_LEVEL=info
@@ -459,8 +497,14 @@ When the cache is stale:
 To force a refresh during testing:
 
 ```bash
-rm -rf data/cache
-npm start
+pnpm refresh
+```
+
+From a Dockploy terminal inside the container, run:
+
+```bash
+cd /app
+pnpm refresh
 ```
 
 ## Useful Test Commands

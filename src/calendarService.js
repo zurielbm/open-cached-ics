@@ -299,8 +299,8 @@ class CalendarService {
 
     const cacheKey = this.buildImageCacheKey(calendarId, eventId);
     const now = new Date();
-    const ttlMs = this.config.cacheTtlSeconds * 1000;
-    const staleMs = this.config.cacheStaleSeconds * 1000;
+    const ttlMs = this.config.imageCacheTtlSeconds * 1000;
+    const staleMs = this.config.imageCacheStaleSeconds * 1000;
     const cached = await this.cache.getImage(cacheKey);
     const classification = classifyCache(cached, now, ttlMs, staleMs);
 

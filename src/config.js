@@ -76,6 +76,14 @@ function loadConfig() {
     cacheDir: resolvePath(process.env.CACHE_DIR || './data/cache'),
     cacheTtlSeconds: toNumber(process.env.CACHE_TTL_SECONDS, 86400),
     cacheStaleSeconds: toNumber(process.env.CACHE_STALE_SECONDS, 86400),
+    imageCacheTtlSeconds: toNumber(
+      process.env.IMAGE_CACHE_TTL_SECONDS,
+      toNumber(process.env.CACHE_TTL_SECONDS, 86400),
+    ),
+    imageCacheStaleSeconds: toNumber(
+      process.env.IMAGE_CACHE_STALE_SECONDS,
+      toNumber(process.env.CACHE_STALE_SECONDS, 86400),
+    ),
     upstreamTimeoutMs: toNumber(process.env.UPSTREAM_TIMEOUT_MS, 8000),
     corsAllowOrigin: process.env.CORS_ALLOW_ORIGIN || '*',
     requireToken: toBoolean(process.env.REQUIRE_TOKEN, false),
