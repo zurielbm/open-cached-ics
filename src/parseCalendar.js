@@ -21,7 +21,7 @@ function expandEvent(event, from, to) {
       to,
       includeOverrides: true,
       excludeExdates: true,
-      expandOngoing: false,
+      expandOngoing: true,
     });
   } catch {
     return [event];
@@ -43,18 +43,18 @@ function parseCalendar(icsText, calendar, options = {}) {
   }
 
   const uniqueEvents = dedupeEvents(expanded);
-  const futureEvents = uniqueEvents.filter((event) => {
+  const activeEvents = uniqueEvents.filter((event) => {
     if (!(event.start instanceof Date) || !(event.end instanceof Date)) {
       return false;
     }
 
     const status = String(event.status || 'CONFIRMED').toUpperCase();
-    return event.start >= now && status !== 'CANCELLED';
+    return event.end >= now && status !== 'CANCELLED';
   });
 
-  futureEvents.sort((a, b) => a.start - b.start);
+  activeEvents.sort((a, b) => a.start - b.start);
 
-  const normalizedEvents = futureEvents
+  const normalizedEvents = activeEvents
     .map((event) => normalizeEvent(event, calendar))
     .filter(Boolean);
 
@@ -68,4 +68,3 @@ function parseCalendar(icsText, calendar, options = {}) {
 module.exports = {
   parseCalendar,
 };
-

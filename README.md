@@ -2,7 +2,7 @@
 
 Small self-hosted calendar proxy for Google Calendar ICS feeds.
 
-It fetches a Google Calendar ICS URL, caches the upstream response, filters to future non-cancelled events, and exposes:
+It fetches a Google Calendar ICS URL, caches the upstream response, filters to non-cancelled events that have not ended yet, and exposes:
 
 - raw cached ICS
 - normalized JSON for a homepage or frontend
@@ -63,7 +63,7 @@ This refreshes:
 
 - raw ICS cache
 - normalized JSON cache
-- cached images for current upcoming events that have an image
+- cached images for current or upcoming events that have an image
 
 Refresh one specific calendar:
 
@@ -81,7 +81,7 @@ Health check:
 http://localhost:3030/health
 ```
 
-Normalized upcoming events JSON:
+Normalized current/upcoming events JSON:
 
 ```text
 http://localhost:3030/api/calendar/default/events
